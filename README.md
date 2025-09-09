@@ -131,3 +131,7 @@ pnpm test:e2e
 - Metrics: Prometheus format at `/metrics`
 - Tracing: OpenTelemetry
 - Logs: Structured JSON to stdout
+
+
+## Changelog
+- init
