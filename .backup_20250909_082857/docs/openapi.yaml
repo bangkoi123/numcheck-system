@@ -1,0 +1,185 @@
+openapi: 3.0.3
+info:
+  title: NumCheck API
+  version: 0.1.0
+servers:
+  - url: http://localhost:3000
+    description: Local gateway
+tags:
+  - name: auth
+  - name: check
+  - name: bulk
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Login (JWT)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+              required: [email, password]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+        '401': { description: Unauthorized }
+
+  /api/v1/quick-check:
+    post:
+      tags: [check]
+      summary: Quick check up to 100 numbers
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                numbers:
+                  type: array
+                  items: { type: string }
+                platforms:
+                  type: array
+                  items:
+                    type: string
+                    enum: [whatsapp, telegram]
+                countryDefault: { type: string, example: ID }
+              required: [numbers, platforms]
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickCheckResponse'
+
+  /api/v1/bulk/start:
+    post:
+      tags: [bulk]
+      summary: Start bulk job
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkStartRequest'
+      responses:
+        '200':
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId: { type: string }
+
+  /api/v1/bulk/status:
+    get:
+      tags: [bulk]
+      summary: Get bulk job status
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: query
+          name: jobId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkStatus'
+
+  /api/v1/bulk/stream:
+    get:
+      tags: [bulk]
+      summary: SSE progress stream
+      parameters:
+        - in: query
+          name: jobId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: SSE stream }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+  schemas:
+    QuickCheckResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              e164: { type: string }
+              wa_status: { type: string, enum: [registered, not_registered, unknown, business_active] }
+              tg_status: { type: string, enum: [registered, not_registered, unknown] }
+        summary:
+          type: object
+          properties:
+            wa:
+              type: object
+              properties:
+                registered: { type: integer }
+                not_registered: { type: integer }
+                unknown: { type: integer }
+            tg:
+              type: object
+              properties:
+                registered: { type: integer }
+                not_registered: { type: integer }
+                unknown: { type: integer }
+    BulkStartRequest:
+      type: object
+      properties:
+        numbers:
+          type: array
+          items: { type: string }
+        platforms:
+          type: array
+          items:
+            type: string
+            enum: [whatsapp, telegram]
+        countryDefault: { type: string, example: ID }
+      required: [numbers, platforms]
+    BulkStatus:
+      type: object
+      properties:
+        jobId: { type: string }
+        status: { type: string, enum: [pending, running, completed, failed, canceled] }
+        processed: { type: integer }
+        total: { type: integer }
+        progress: { type: number, format: float }
+        summary:
+          type: object
+          additionalProperties: true

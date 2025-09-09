@@ -1,0 +1,12 @@
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=development
+RUN corepack enable && corepack prepare pnpm@9 --activate
+
+COPY package.json pnpm-workspace.yaml ./
+RUN pnpm install --no-frozen-lockfile
+
+COPY apps/web-user/ ./apps/web-user/
+WORKDIR /app/apps/web-user
+EXPOSE 3001
+CMD ["pnpm","run","dev"]

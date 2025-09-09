@@ -1,0 +1,820 @@
+openapi: 3.0.3
+info:
+  title: NumCheck API
+  description: |
+    Event-driven, multi-tenant system for bulk validation of WhatsApp & Telegram numbers.
+    
+    ## Authentication
+    
+    The API supports two authentication methods:
+    1. **JWT Token**: Use `Authorization: Bearer <token>` header
+    2. **API Key**: Use `X-Api-Key: <api-key>` header
+    
+    ## Rate Limiting
+    
+    - Quick check: 60 requests/minute per tenant
+    - Bulk operations: 200 items/second total processing
+    - Rate limit headers are included in responses
+    
+    ## Error Handling
+    
+    The API uses standard HTTP status codes and returns error details in JSON format:
+    ```json
+    {
+      "error": "Error message",
+      "code": "ERROR_CODE",
+      "details": {}
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: NumCheck Support
+    email: support@numcheck.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://api.numcheck.com
+    description: Production
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      description: Check if the service is healthy
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+
+  /api/v1/auth/login:
+    post:
+      summary: User login
+      description: Authenticate user with email and password
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: demo@example.com
+                password:
+                  type: string
+                  example: demo123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/me:
+    get:
+      summary: Get current user
+      description: Get information about the authenticated user
+      tags: [Authentication]
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/quick-check:
+    post:
+      summary: Quick number validation
+      description: |
+        Synchronous validation of up to 100 phone numbers.
+        Returns results within 3-5 seconds.
+      tags: [Validation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickCheckRequest'
+      responses:
+        '200':
+          description: Validation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickCheckResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/bulk/start:
+    post:
+      summary: Start bulk validation job
+      description: |
+        Start an asynchronous bulk validation job for up to 1 million numbers.
+        Returns a job ID for tracking progress.
+      tags: [Bulk Operations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkJobRequest'
+      responses:
+        '201':
+          description: Job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/bulk/status:
+    get:
+      summary: Get job status
+      description: Get the current status and progress of a bulk validation job
+      tags: [Bulk Operations]
+      parameters:
+        - name: jobId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: job_2025_0001
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bulk/stream:
+    get:
+      summary: Stream job progress
+      description: |
+        Server-Sent Events stream for real-time job progress updates.
+        Connect to this endpoint to receive live updates about job progress.
+      tags: [Bulk Operations]
+      parameters:
+        - name: jobId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: job_2025_0001
+      responses:
+        '200':
+          description: SSE stream of progress updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  data: {"jobId":"job_2025_0001","processed":1250,"total":10000,"progress":0.125}
+                  
+                  data: {"jobId":"job_2025_0001","processed":2500,"total":10000,"progress":0.25}
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bulk/export.csv:
+    get:
+      summary: Export job results as CSV
+      description: |
+        Get a signed URL to download the job results as a CSV file.
+        The URL is valid for 24 hours.
+      tags: [Bulk Operations]
+      parameters:
+        - name: jobId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: job_2025_0001
+      responses:
+        '302':
+          description: Redirect to signed S3 URL
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/admin/tenants:
+    get:
+      summary: List tenants
+      description: Get a list of all tenants (admin only)
+      tags: [Admin - Tenants]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tenant'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      summary: Create tenant
+      description: Create a new tenant (admin only)
+      tags: [Admin - Tenants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/users:
+    get:
+      summary: List users
+      description: Get a list of users (admin only)
+      tags: [Admin - Users]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+          description: Filter by tenant ID
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /api/admin/tg-accounts:
+    get:
+      summary: List Telegram accounts
+      description: Get a list of Telegram accounts for validation
+      tags: [Admin - Telegram]
+      responses:
+        '200':
+          description: List of Telegram accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TelegramAccount'
+
+    post:
+      summary: Add Telegram account
+      description: Add a new Telegram account for validation
+      tags: [Admin - Telegram]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTelegramAccountRequest'
+      responses:
+        '201':
+          description: Telegram account added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramAccount'
+
+  /api/admin/tg-accounts/{id}/test:
+    post:
+      summary: Test Telegram account connection
+      description: Test if a Telegram account can connect successfully
+      tags: [Admin - Telegram]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  details:
+                    type: object
+
+  /api/admin/jobs:
+    get:
+      summary: List all jobs
+      description: Get a list of all validation jobs (admin only)
+      tags: [Admin - Jobs]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, completed, failed, canceled]
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Job'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page number
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Number of items per page
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [ADMIN, TENANT_ADMIN, USER]
+        tenantId:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        plan:
+          type: string
+        rateLimit:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    QuickCheckRequest:
+      type: object
+      required: [numbers, platforms]
+      properties:
+        numbers:
+          type: array
+          items:
+            type: string
+          maxItems: 100
+          example: ["+628123456789", "08123456789", "+6281234567890"]
+        platforms:
+          type: array
+          items:
+            type: string
+            enum: [whatsapp, telegram]
+          example: ["whatsapp", "telegram"]
+        countryDefault:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: "ID"
+
+    QuickCheckResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationResult'
+        summary:
+          $ref: '#/components/schemas/ValidationSummary'
+
+    ValidationResult:
+      type: object
+      properties:
+        e164:
+          type: string
+          example: "+628123456789"
+        waStatus:
+          type: string
+          enum: [registered, not_registered, business_active, unknown]
+          nullable: true
+        tgStatus:
+          type: string
+          enum: [registered, not_registered, unknown]
+          nullable: true
+        waCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+        tgCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+          nullable: true
+
+    ValidationSummary:
+      type: object
+      properties:
+        wa:
+          type: object
+          properties:
+            registered:
+              type: integer
+            not_registered:
+              type: integer
+            business_active:
+              type: integer
+            unknown:
+              type: integer
+        tg:
+          type: object
+          properties:
+            registered:
+              type: integer
+            not_registered:
+              type: integer
+            unknown:
+              type: integer
+
+    BulkJobRequest:
+      type: object
+      required: [numbers, platforms]
+      properties:
+        numbers:
+          type: array
+          items:
+            type: string
+          maxItems: 1000000
+        platforms:
+          type: array
+          items:
+            type: string
+            enum: [whatsapp, telegram]
+        countryDefault:
+          type: string
+          pattern: '^[A-Z]{2}$'
+
+    BulkJobResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          example: "job_2025_0001"
+
+    JobStatusResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed, canceled]
+        processed:
+          type: integer
+        total:
+          type: integer
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        summary:
+          $ref: '#/components/schemas/ValidationSummary'
+        exportUrl:
+          type: string
+          nullable: true
+        duplicatesCount:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        type:
+          type: string
+          enum: [QUICK, BULK]
+        status:
+          type: string
+          enum: [PENDING, RUNNING, COMPLETED, FAILED, CANCELED]
+        total:
+          type: integer
+        processed:
+          type: integer
+        success:
+          type: integer
+        failed:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    TelegramAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        phoneLabel:
+          type: string
+        isActive:
+          type: boolean
+        dailyLimit:
+          type: integer
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorCount:
+          type: integer
+
+    CreateTenantRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        plan:
+          type: string
+          default: "basic"
+        rateLimit:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          default: 60
+
+    CreateTelegramAccountRequest:
+      type: object
+      required: [phoneLabel, apiId, apiHash, sessionString]
+      properties:
+        phoneLabel:
+          type: string
+        apiId:
+          type: string
+        apiHash:
+          type: string
+        sessionString:
+          type: string
+        proxyUrl:
+          type: string
+          format: uri
+          nullable: true
+        dailyLimit:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          default: 1000
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Validation failed"
+            code: "VALIDATION_ERROR"
+            details:
+              field: "numbers"
+              message: "Array must contain at least 1 element"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Authentication required"
+            code: "UNAUTHORIZED"
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Insufficient permissions"
+            code: "FORBIDDEN"
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Resource not found"
+            code: "NOT_FOUND"
+
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Request limit per time window
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Remaining requests in current window
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+          description: Time when the rate limit resets (Unix timestamp)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Rate limit exceeded"
+            code: "RATE_LIMITED"
+            details:
+              limit: 60
+              remaining: 0
+              resetTime: 1640995200
+
+tags:
+  - name: System
+    description: System health and status
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Validation
+    description: Phone number validation operations
+  - name: Bulk Operations
+    description: Bulk validation job management
+  - name: Admin - Tenants
+    description: Tenant management (admin only)
+  - name: Admin - Users
+    description: User management (admin only)
+  - name: Admin - Telegram
+    description: Telegram account management (admin only)
+  - name: Admin - Jobs
+    description: Job monitoring and management (admin only)

@@ -1,0 +1,9 @@
+services:
+  web-user:
+    build: null
+    image: numcheck-web-user:latest
+    ports:
+      - "127.0.0.1:18001:3001"
+    command: null
+    volumes: []
+    depends_on: [gateway]

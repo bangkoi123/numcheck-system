@@ -1,0 +1,28 @@
+services:
+  # API gateway ? bind hanya ke loopback di port host 18000
+  gateway:
+    ports:
+      - "127.0.0.1:18000:3000"
+
+  # Web user ? 18001 (loopback)
+  web-user:
+    ports:
+      - "127.0.0.1:18001:3001"
+    environment:
+      # browser akan panggil API via 18000
+      - REACT_APP_API_URL=http://localhost:18000
+
+  # Web admin ? 18002 (loopback)
+  web-admin:
+    ports:
+      - "127.0.0.1:18002:3002"
+    environment:
+      - REACT_APP_API_URL=http://localhost:18000
+
+  # JANGAN expose service internal ke host
+  postgres:
+    ports: []   # hilangkan "5432:5432"
+  redis:
+    ports: []   # hilangkan "6379:6379"
+  minio:
+    ports: []   # hilangkan "9000:9000" & "9001:9001"

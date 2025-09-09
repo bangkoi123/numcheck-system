@@ -1,0 +1,164 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  plan         String   @default("basic")
+  apiKeyHash   String?  @map("api_key_hash")
+  rateLimit    Int      @default(60) @map("rate_limit")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  users     User[]
+  jobs      Job[]
+  auditLogs AuditLog[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(USER)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdJobs   Job[]      @relation("JobCreator")
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  TENANT_ADMIN
+  USER
+}
+
+model Job {
+  id             String    @id @default(cuid())
+  tenantId       String    @map("tenant_id")
+  createdById    String    @map("created_by_id")
+  type           JobType
+  total          Int       @default(0)
+  processed      Int       @default(0)
+  success        Int       @default(0)
+  failed         Int       @default(0)
+  status         JobStatus @default(PENDING)
+  startedAt      DateTime? @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  countryDefault String?   @map("country_default")
+  platforms      Json      @default("[]")
+  summary        Json      @default("{}")
+  exportUrl      String?   @map("export_url")
+  duplicatesCount Int      @default(0) @map("duplicates_count")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("JobCreator", fields: [createdById], references: [id])
+  items     JobItem[]
+
+  @@map("jobs")
+}
+
+enum JobType {
+  QUICK
+  BULK
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+model JobItem {
+  id          String    @id @default(cuid())
+  jobId       String    @map("job_id")
+  e164        String
+  waStatus    String?   @map("wa_status")
+  tgStatus    String?   @map("tg_status")
+  waCheckedAt DateTime? @map("wa_checked_at")
+  tgCheckedAt DateTime? @map("tg_checked_at")
+  error       String?
+  meta        Json      @default("{}")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, e164])
+  @@map("job_items")
+}
+
+model WaCache {
+  e164      String   @id
+  status    String
+  checkedAt DateTime @map("checked_at")
+  ttlAt     DateTime @map("ttl_at")
+  meta      Json     @default("{}")
+
+  @@index([ttlAt])
+  @@map("wa_cache")
+}
+
+model TgCache {
+  e164      String   @id
+  status    String
+  checkedAt DateTime @map("checked_at")
+  ttlAt     DateTime @map("ttl_at")
+  meta      Json     @default("{}")
+
+  @@index([ttlAt])
+  @@map("tg_cache")
+}
+
+model TgAccount {
+  id            String    @id @default(cuid())
+  phoneLabel    String    @map("phone_label")
+  apiId         String    @map("api_id")
+  apiHash       String    @map("api_hash")
+  sessionString String    @map("session_string") // encrypted
+  proxyUrl      String?   @map("proxy_url")
+  isActive      Boolean   @default(true) @map("is_active")
+  dailyLimit    Int       @default(1000) @map("daily_limit")
+  lastUsedAt    DateTime? @map("last_used_at")
+  errorCount    Int       @default(0) @map("error_count")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("tg_accounts")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  actorUserId String? @map("actor_user_id")
+  action     String
+  entity     String
+  entityId   String   @map("entity_id")
+  meta       Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorUserId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}

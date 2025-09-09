@@ -1,0 +1,662 @@
+{
+  "info": {
+    "name": "NumCheck API",
+    "description": "Event-driven multi-tenant WhatsApp & Telegram number validation system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "default-api-key",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/healthz",
+              "host": ["{{base_url}}"],
+              "path": ["healthz"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.token);",
+                  "    pm.test('Login successful', function () {",
+                  "        pm.expect(response.token).to.be.a('string');",
+                  "        pm.expect(response.user).to.be.an('object');",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Login failed', function () {",
+                  "        pm.response.to.have.status(401);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo@example.com\",\n  \"password\": \"demo123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "me"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Quick Check",
+      "item": [
+        {
+          "name": "Quick Check - WhatsApp Only",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numbers\": [\n    \"+628123456789\",\n    \"08123456790\",\n    \"+6281234567891\"\n  ],\n  \"platforms\": [\"whatsapp\"],\n  \"countryDefault\": \"ID\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/quick-check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quick-check"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Quick Check - Both Platforms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numbers\": [\n    \"+628123456789\",\n    \"08123456790\",\n    \"+6281234567891\",\n    \"+6285123456789\"\n  ],\n  \"platforms\": [\"whatsapp\", \"telegram\"],\n  \"countryDefault\": \"ID\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/quick-check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quick-check"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Quick Check - With API Key",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Api-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numbers\": [\n    \"+628123456789\",\n    \"08123456790\"\n  ],\n  \"platforms\": [\"whatsapp\"],\n  \"countryDefault\": \"ID\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/quick-check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quick-check"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bulk Operations",
+      "item": [
+        {
+          "name": "Start Bulk Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('job_id', response.jobId);",
+                  "    pm.test('Job created successfully', function () {",
+                  "        pm.expect(response.jobId).to.be.a('string');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numbers\": [\n    \"+628123456789\",\n    \"08123456790\",\n    \"+6281234567891\",\n    \"+6285123456789\",\n    \"+6287123456789\",\n    \"08123456792\",\n    \"+6281234567893\",\n    \"+6285123456794\",\n    \"+6287123456795\",\n    \"08123456796\"\n  ],\n  \"platforms\": [\"whatsapp\", \"telegram\"],\n  \"countryDefault\": \"ID\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bulk/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bulk", "start"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Job Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bulk/status?jobId={{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bulk", "status"],
+              "query": [
+                {
+                  "key": "jobId",
+                  "value": "{{job_id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Export Job Results (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/bulk/export.csv?jobId={{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bulk", "export.csv"],
+              "query": [
+                {
+                  "key": "jobId",
+                  "value": "{{job_id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Tenants",
+      "item": [
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/tenants?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "tenants"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Tenant\",\n  \"plan\": \"premium\",\n  \"rateLimit\": 120\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/tenants",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "tenants"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"USER\",\n  \"tenantId\": \"demo-tenant\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Telegram Accounts",
+      "item": [
+        {
+          "name": "List Telegram Accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/tg-accounts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "tg-accounts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Telegram Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneLabel\": \"+1234567890\",\n  \"apiId\": \"12345\",\n  \"apiHash\": \"your_api_hash_here\",\n  \"sessionString\": \"your_session_string_here\",\n  \"proxyUrl\": \"socks5://proxy.example.com:1080\",\n  \"dailyLimit\": 1000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/tg-accounts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "tg-accounts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Test Telegram Account Connection",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/tg-accounts/sample-tg-account/test",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "tg-accounts", "sample-tg-account", "test"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Jobs",
+      "item": [
+        {
+          "name": "List All Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/jobs?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "jobs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Jobs by Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/jobs?status=running&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "jobs"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "running"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Jobs by Tenant",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/jobs?tenantId=demo-tenant&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "jobs"],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "demo-tenant"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "item": [
+        {
+          "name": "Invalid Authentication",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "invalid_token",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rate Limit Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numbers\": [\"+628123456789\"],\n  \"platforms\": [\"whatsapp\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/quick-check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quick-check"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Phone Numbers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numbers\": [\n    \"invalid_number\",\n    \"123\",\n    \"\"\n  ],\n  \"platforms\": [\"whatsapp\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/quick-check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quick-check"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Too Many Numbers (Quick Check)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numbers\": [{{#repeat 101}}\"+62812345678{{@index}}\"{{#unless @last}},{{/unless}}{{/repeat}}],\n  \"platforms\": [\"whatsapp\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/quick-check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "quick-check"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-refresh JWT token if expired",
+          "const token = pm.collectionVariables.get('jwt_token');",
+          "if (token) {",
+          "    try {",
+          "        const payload = JSON.parse(atob(token.split('.')[1]));",
+          "        const now = Math.floor(Date.now() / 1000);",
+          "        if (payload.exp && payload.exp < now) {",
+          "            console.log('JWT token expired, clearing...');",
+          "            pm.collectionVariables.set('jwt_token', '');",
+          "        }",
+          "    } catch (e) {",
+          "        console.log('Invalid JWT token, clearing...');",
+          "        pm.collectionVariables.set('jwt_token', '');",
+          "    }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test for rate limit headers",
+          "if (pm.response.headers.has('X-RateLimit-Limit')) {",
+          "    pm.test('Rate limit headers present', function () {",
+          "        pm.expect(pm.response.headers.get('X-RateLimit-Limit')).to.be.a('string');",
+          "        pm.expect(pm.response.headers.get('X-RateLimit-Remaining')).to.be.a('string');",
+          "        pm.expect(pm.response.headers.get('X-RateLimit-Reset')).to.be.a('string');",
+          "    });",
+          "}",
+          "",
+          "// Global test for error format",
+          "if (pm.response.code >= 400) {",
+          "    pm.test('Error response format', function () {",
+          "        const response = pm.response.json();",
+          "        pm.expect(response).to.have.property('error');",
+          "        pm.expect(response).to.have.property('code');",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ]
+}

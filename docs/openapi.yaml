@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: NumCheck API
+  version: 0.1.0
+servers:
+  - url: http://localhost:3000
+paths:
+  /healthz:
+    get:
+      responses: { "200": { description: OK } }
+  /api/v1/auth/login:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { email: {type: string}, password: {type: string} }
+      responses: { "200": { description: token } }
+  /api/v1/quick-check:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                numbers:    { type: array, items: { type: string } }
+                platforms:  { type: array, items: { type: string, enum: [whatsapp, telegram] } }
+                countryDefault: { type: string }
+      responses: { "200": { description: result } }
+  /api/v1/bulk/start:
+    post:
+      responses: { "200": { description: job started } }
+  /api/v1/bulk/status:
+    get:
+      parameters:
+        - in: query
+          name: jobId
+          schema: { type: string }
+          required: true
+      responses: { "200": { description: job status } }
