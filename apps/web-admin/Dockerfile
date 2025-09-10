@@ -1,8 +1,12 @@
-FROM node:20-alpine
+FROM node:20-alpine AS build
 WORKDIR /app
-ENV NODE_ENV=development
-COPY apps/web-admin/package*.json ./
+COPY package.json ./
 RUN npm ci || npm install
-COPY apps/web-admin/ ./
+COPY . .
+RUN npm run build
+
+FROM nginx:1.25-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 3002
-CMD ["npm","run","dev"]
+CMD ["nginx","-g","daemon off;"]
