@@ -2,11 +2,8 @@
   "name": "numcheck-gateway",
   "version": "0.0.1",
   "private": true,
+  "main": "server.js",
   "type": "commonjs",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
-  },
   "dependencies": {
     "express": "^4.19.2"
   }
