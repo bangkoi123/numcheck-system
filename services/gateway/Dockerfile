@@ -1,7 +1,14 @@
 FROM node:20-alpine
+
 WORKDIR /app
-COPY package*.json ./
+
+# pakai path dari root repo karena compose build konteksnya '.'
+COPY services/gateway/package*.json ./
 RUN npm ci --omit=optional || npm i --omit=optional
-COPY server.js ./server.js
+
+# salin source
+COPY services/gateway/server.js ./server.js
+COPY services/gateway/src ./src
+
 EXPOSE 3000
 CMD ["node","server.js"]

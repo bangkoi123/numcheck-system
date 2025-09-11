@@ -65,6 +65,25 @@ docker-up: ## Start all services with Docker Compose
 docker-down: ## Stop all Docker services
 	docker-compose down
 
+up: ## Start all services
+	docker-compose up -d
+
+down: ## Stop all services
+	docker-compose down
+
+restart-gateway: ## Restart gateway service
+	docker-compose restart gateway
+
+restart-webadmin: ## Restart web-admin service
+	docker-compose restart web-admin
+
+logs: ## Show logs from all services
+	docker-compose logs -f
+
+health: ## Check health of gateway and web-admin
+	@echo "Gateway health:"; curl -sS http://127.0.0.1:11800/healthz
+	@echo "Web-admin health:"; curl -sS http://127.0.0.1:11802/healthz
+
 docker-logs: ## Show logs from all services
 	docker-compose logs -f
 

@@ -51,7 +51,7 @@ services:
       context: .
       dockerfile: services/gateway/Dockerfile
     ports:
-      - "127.0.0.1:18000:3000"
+      - "127.0.0.1:11800:3000"
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/numcheck
@@ -71,6 +71,11 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     volumes:
       - ./services/gateway:/app
       - /app/node_modules
@@ -141,7 +146,7 @@ services:
     ports:
       - "127.0.0.1:18001:3001"
     environment:
-      - REACT_APP_API_URL=http://127.0.0.1:18000
+      - REACT_APP_API_URL=http://127.0.0.1:11800
     volumes:
       - ./apps/web-user:/app
       - /app/node_modules
@@ -151,9 +156,16 @@ services:
       context: .
       dockerfile: apps/web-admin/Dockerfile
     ports:
-      - "127.0.0.1:18002:3002"
+      - "127.0.0.1:11802:3002"
     environment:
-      - REACT_APP_API_URL=http://127.0.0.1:18000
+      - REACT_APP_API_URL=http://127.0.0.1:11800
+    depends_on:
+      - gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     volumes:
       - ./apps/web-admin:/app
       - /app/node_modules

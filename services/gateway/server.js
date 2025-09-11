@@ -2,42 +2,20 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-// helper mount dua path: /api/<p> dan <p>
-const routes = (p) => [`/api${p}`, p];
+// health
+app.get('/healthz', (_, res) => res.json({ ok: true, service: 'gateway' }));
 
-app.get(routes('/healthz'), (_req, res) => res.json({ ok: true, service: 'gateway' }));
+// dukung dua prefix sekaligus (nginx strip '/api/' saat proxy_pass pakai trailing slash)
+const startPaths  = ['/api/v1/bulk/start',  '/v1/bulk/start'];
+const statusPaths = ['/api/v1/bulk/status', '/v1/bulk/status'];
+const streamPaths = ['/api/v1/bulk/stream', '/v1/bulk/stream'];
+const auditPaths  = ['/api/v1/audit/list',  '/v1/audit/list'];
 
-// BULK (stub)
-app.post(routes('/v1/bulk/start'), (req, res) => {
-  res.json({ jobId: 'DEMO_JOB_123' });
-});
-app.get(routes('/v1/bulk/status'), (req, res) => {
-  const jobId = String(req.query.jobId || 'DEMO_JOB_123');
-  res.json({ jobId, state: 'queued' });
-});
-app.get(routes('/v1/bulk/stream'), (req, res) => {
-  res.type('text/csv');
-  res.write('e164,wa_status,tg_status\n');
-  res.write('+6281234567890,not_registered,unknown\n');
-  res.write('+6285550001111,not_registered,unknown\n');
-  res.end();
-});
+// stubs
+app.post(startPaths,  (req,res)=> res.json({ jobId: 'DEMO_JOB_123' }));
+app.get(statusPaths,  (req,res)=> res.json({ jobId: String(req.query.jobId||'DEMO_JOB_123'), state: 'queued' }));
+app.get(streamPaths,  (req,res)=> { res.set('Content-Type','text/csv'); res.end('e164,wa_status,tg_status\n+6281234567890,not_registered,unknown\n+6285550001111,not_registered,unknown\n'); });
+app.get(auditPaths,   (req,res)=> { const n=Math.min(+req.query.limit||100,3); const rows=[]; for(let i=0;i<n;i++){ rows.push({time:new Date(Date.now()-i*60000).toISOString(),action:'bulk.start',user:'admin',meta:{note:'stub'}});} res.json(rows); });
+app.use((_,res)=>res.status(404).json({ error:'Not Found' }));
 
-// AUDIT (stub)
-app.get(routes('/v1/audit/list'), (req, res) => {
-  const limit = Math.min(Number(req.query.limit || 100), 3);
-  const now = Date.now();
-  const rows = Array.from({ length: limit }, (_, i) => ({
-    time: new Date(now - i * 60000).toISOString(),
-    action: 'bulk.start',
-    user: 'admin',
-    meta: { note: 'stub' },
-  }));
-  res.json(rows);
-});
-
-// fallback
-app.use((_req, res) => res.status(404).json({ error: 'Not Found' }));
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Gateway listening on', PORT));
+app.listen(3000, ()=>console.log('Gateway listening on 3000'));
