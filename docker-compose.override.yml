@@ -1,15 +1,23 @@
-version: '3.8'
 services:
   gateway:
     ports:
       - "127.0.0.1:11800:3000"
-  web-user:
-    environment:
-      - REACT_APP_API_URL=http://127.0.0.1:11800
-    ports:
-      - "127.0.0.1:18001:3001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
   web-admin:
-    environment:
-      - REACT_APP_API_URL=http://127.0.0.1:11800
+    depends_on:
+      gateway:
+        condition: service_healthy
     ports:
       - "127.0.0.1:11802:3002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped

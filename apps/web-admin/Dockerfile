@@ -1,12 +1,24 @@
+# ---------- Build stage ----------
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm ci || npm install
-COPY . .
+
+# Pakai manifest milik apps/web-admin (bukan root)
+COPY apps/web-admin/package*.json ./
+
+# Install deps (kalau tidak ada package-lock.json, fallback ke npm install)
+RUN if [ -f package-lock.json ]; then \
+      npm ci; \
+    else \
+      npm install; \
+    fi
+
+# Copy source aplikasi dan build
+COPY apps/web-admin/ .
 RUN npm run build
 
+# ---------- Runtime stage ----------
 FROM nginx:1.25-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# nginx.conf sudah kamu buat di apps/web-admin/nginx.conf
+COPY apps/web-admin/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 3002
-CMD ["nginx","-g","daemon off;"]
