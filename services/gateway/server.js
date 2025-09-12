@@ -1,103 +1,21 @@
-const http = require('http');
-const {parse: parseUrl} = require('url');
+const express = require('express');
+const app = express();
+app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
-const MOCK = String(process.env.MOCK_PROVIDERS || 'true').toLowerCase() === 'true';
+// health
+app.get('/healthz', (_, res) => res.json({ ok: true, service: 'gateway' }));
 
-function send(res, code, data, headers = {}) {
-  const body = JSON.stringify(data);
-  res.writeHead(code, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers });
-  res.end(body);
-}
+// dukung dua prefix sekaligus (nginx strip '/api/' saat proxy_pass pakai trailing slash)
+const startPaths  = ['/api/v1/bulk/start',  '/v1/bulk/start'];
+const statusPaths = ['/api/v1/bulk/status', '/v1/bulk/status'];
+const streamPaths = ['/api/v1/bulk/stream', '/v1/bulk/stream'];
+const auditPaths  = ['/api/v1/audit/list',  '/v1/audit/list'];
 
-function readJson(req) {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', (c) => {
-      raw += c;
-      if (raw.length > 1e6) req.destroy();  // guard
-    });
-    req.on('end', () => {
-      if (!raw) return resolve({});
-      try { resolve(JSON.parse(raw)); } catch(e) { reject(e); }
-    });
-    req.on('error', reject);
-  });
-}
+// stubs
+app.post(startPaths,  (req,res)=> res.json({ jobId: 'DEMO_JOB_123' }));
+app.get(statusPaths,  (req,res)=> res.json({ jobId: String(req.query.jobId||'DEMO_JOB_123'), state: 'queued' }));
+app.get(streamPaths,  (req,res)=> { res.set('Content-Type','text/csv'); res.end('e164,wa_status,tg_status\n+6281234567890,not_registered,unknown\n+6285550001111,not_registered,unknown\n'); });
+app.get(auditPaths,   (req,res)=> { const n=Math.min(+req.query.limit||100,3); const rows=[]; for(let i=0;i<n;i++){ rows.push({time:new Date(Date.now()-i*60000).toISOString(),action:'bulk.start',user:'admin',meta:{note:'stub'}});} res.json(rows); });
+app.use((_,res)=>res.status(404).json({ error:'Not Found' }));
 
-// normalisasi sangat sederhana (cukup untuk mock)
-function toE164(num, countryDefault='ID') {
-  const onlyDigits = (s) => (s || '').replace(/[^\d+]/g, '');
-  num = onlyDigits(num);
-
-  if (num.startsWith('+')) return num;
-
-  if (countryDefault === 'ID') {
-    if (num.startsWith('0')) return '+62' + num.slice(1);
-    if (/^\d+$/.test(num)) return '+62' + num;
-  }
-  // fallback kasar: jika angka polos, prefix + (anggap internasional)
-  if (/^\d+$/.test(num)) return '+' + num;
-  return num;
-}
-
-function mockStatus(e164) {
-  // deterministik: pakai digit terakhir untuk status
-  const last = e164.replace(/[^\d]/g,'').slice(-1);
-  const pick = (d) => {
-    if (d === '0' || d === '1' || d === '2') return 'registered';
-    if (d === '3' || d === '4' || d === '5') return 'not_registered';
-    return 'unknown';
-  };
-  return { wa_status: pick(last), tg_status: pick(String((Number(last)+3)%10)) };
-}
-
-const server = http.createServer(async (req, res) => {
-  const { pathname } = parseUrl(req.url || '', true);
-
-  // health
-  if (req.method === 'GET' && pathname === '/healthz') {
-    return send(res, 200, { ok: true, service: 'gateway' });
-  }
-
-  // POST /api/v1/quick-check
-  if (req.method === 'POST' && pathname === '/api/v1/quick-check') {
-    try {
-      const body = await readJson(req);
-      const numbers = Array.isArray(body.numbers) ? body.numbers : [];
-      const platforms = Array.isArray(body.platforms) ? body.platforms : ['whatsapp','telegram'];
-      const countryDefault = body.countryDefault || 'ID';
-
-      const items = numbers.slice(0, 100).map(n => {
-        const e164 = toE164(n, countryDefault);
-        if (MOCK) {
-          const st = mockStatus(e164);
-          return {
-            e164,
-            wa_status: platforms.includes('whatsapp') ? st.wa_status : 'unknown',
-            tg_status: platforms.includes('telegram')  ? st.tg_status : 'unknown'
-          };
-        }
-        // kalau nanti real provider, taruh logic di sini
-        return { e164, wa_status:'unknown', tg_status:'unknown' };
-      });
-
-      const sum = { wa: {registered:0,not_registered:0,unknown:0}, tg: {registered:0,not_registered:0,unknown:0} };
-      for (const it of items) {
-        sum.wa[it.wa_status] = (sum.wa[it.wa_status]||0)+1;
-        sum.tg[it.tg_status] = (sum.tg[it.tg_status]||0)+1;
-      }
-
-      return send(res, 200, { items, summary: sum });
-    } catch (e) {
-      return send(res, 400, { error: 'Invalid JSON body', detail: String(e.message||e) });
-    }
-  }
-
-  // default
-  send(res, 404, { error: 'Not Found' });
-});
-
-server.listen(PORT, () => {
-  console.log('Gateway listening on', PORT);
-});
+app.listen(3000, ()=>console.log('Gateway listening on 3000'));

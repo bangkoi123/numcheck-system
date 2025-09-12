@@ -1,0 +1,3 @@
+services:
+  web-admin:
+    depends_on: null

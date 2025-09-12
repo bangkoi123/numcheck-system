@@ -1,0 +1,11 @@
+services:
+  web-admin:
+    build:
+      context: ./apps/web-admin
+      dockerfile: Dockerfile
+    image: numcheck-web-admin:latest
+    ports:
+      - "127.0.0.1:18002:3002"
+    command: null
+    volumes: []
+    depends_on: [gateway]
