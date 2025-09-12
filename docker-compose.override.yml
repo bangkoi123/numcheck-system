@@ -1,15 +1,14 @@
-version: '3.8'
 services:
   gateway:
     ports:
-      - "127.0.0.1:18000:3000"
+      - "11800:3000"
   web-user:
     environment:
-      - REACT_APP_API_URL=http://127.0.0.1:18000
+      - REACT_APP_API_URL=/api/
     ports:
-      - "127.0.0.1:18001:3001"
+      - "11803:80"
   web-admin:
     environment:
-      - REACT_APP_API_URL=http://127.0.0.1:18000
+      - REACT_APP_API_URL=/api/
     ports:
-      - "127.0.0.1:18002:3002"
+      - "11802:80"

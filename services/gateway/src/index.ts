@@ -1,3 +1,5 @@
+import bulkRoutes from "./routes/bulk";
+import auditRoutes from "./routes/audit";
 import 'dotenv/config';
 import { fastify } from 'fastify';
 import { logger } from '@numcheck/shared';

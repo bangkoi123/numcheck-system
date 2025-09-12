@@ -1,0 +1,10 @@
+services:
+  gateway:
+    ports:
+      - "0.0.0.0:32000:3000"
+  web-admin:
+    ports:
+      - "0.0.0.0:32002:80"
+  web-user:
+    ports:
+      - "0.0.0.0:32003:80"

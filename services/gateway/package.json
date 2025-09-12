@@ -1,6 +1,8 @@
 {
   "name": "gateway",
   "version": "0.0.1",
-  "private": true,
-  "scripts": { "dev": "node server.js" }
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {"dev": "node server.js"},
+  "dependencies": {"express": "^4.19.2"}
 }

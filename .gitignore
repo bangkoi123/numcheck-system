@@ -4,3 +4,10 @@ dist
 .env*
 apps/**/dist
 .DS_Store
+.env
+*.env
+node_modules/
+dist/
+build/
+logs/
+
