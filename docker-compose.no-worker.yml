@@ -1,0 +1,3 @@
+services:
+  worker-wa:
+    profiles: ["manual"]  # hanya jalan kalau --profile manual dipanggil
